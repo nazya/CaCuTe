@@ -17,7 +17,7 @@ class RegNewtonLS(LineSearch):
     """
     
     def __init__(self, decrease_reg=True, backtracking=0.5, H0=None, *args, **kwargs):
-        super(RegNewtonLS, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         self.decrease_reg = decrease_reg
         self.backtracking = backtracking
         self.H0 = H0
@@ -29,9 +29,13 @@ class RegNewtonLS(LineSearch):
             self.f_prev = self.loss.value(x)
         self.f_new = self.loss.value(x_new)
         r = self.loss.norm(x_new - x)
+
         condition_f = self.f_new <= self.f_prev - 2/3 * identity_coef * r**2
+        
         grad_new = self.loss.gradient(x_new)
         condition_grad = self.loss.norm(grad_new) <= 2 * identity_coef * r
+        
+        
         self.attempts = self.attempts + 1 if not condition_f or not condition_grad else 0
         return condition_f and condition_grad
         
@@ -43,7 +47,8 @@ class RegNewtonLS(LineSearch):
         
         x_new = x - np.linalg.solve(hess + identity_coef*np.eye(self.loss.dim), grad)
         condition_met = self.condition(x_new, x, grad, identity_coef)
-        self.it += self.it_per_call
+        
+        # self.it += self.it_per_call
         it_extra = 0
         it_max = min(self.it_max, self.optimizer.ls_it_max - self.it)
         while not condition_met and it_extra < it_max:
@@ -55,10 +60,10 @@ class RegNewtonLS(LineSearch):
             if self.backtracking / self.H == 0:
                 break
         self.f_prev = self.f_new
-        self.it += it_extra
+        # self.it += it_extra
         self.lr = 1 / identity_coef
         return x_new
 
     def reset(self, *args, **kwargs):
-        super(RegNewtonLS, self).reset(*args, **kwargs)
+        super().reset(*args, **kwargs)
         self.f_prev = None

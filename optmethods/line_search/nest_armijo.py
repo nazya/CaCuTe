@@ -15,7 +15,7 @@ class NestArmijo(LineSearch):
     """
     
     def __init__(self, mu=0, start_with_prev_lr=True, backtracking=0.5, start_with_small_momentum=True, *args, **kwargs):
-        super(NestArmijo, self).__init__(count_first_it=True, *args, **kwargs)
+        super().__init__(count_first_it=True, *args, **kwargs)
         self.mu = mu
         self.start_with_prev_lr = start_with_prev_lr
         self.backtracking = backtracking
@@ -57,9 +57,10 @@ class NestArmijo(LineSearch):
             if self.lr * self.backtracking == 0:
                 break
         
-        self.it += self.it_per_call + it_extra
+        # self.ls_it += self.it_per_call + it_extra
+        # self.it += self.it_per_call + it_extra
         return x_new, a
     
     def reset(self, *args, **kwargs):
-        super(NestArmijo, self).reset(*args, **kwargs)
+        super().reset(*args, **kwargs)
         self.global_calls = 0

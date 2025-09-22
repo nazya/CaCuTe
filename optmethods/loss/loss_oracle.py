@@ -42,6 +42,9 @@ class Oracle():
         self.seed = seed
         self.rng = np.random.default_rng(seed)
     
+    # def _value(self, x):
+    #     pass
+
     def value(self, x):
         value = self._value(x)
         if self.regularizer is not None:

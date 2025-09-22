@@ -133,3 +133,5 @@ dmypy.json
 
 # Methods that have not been tested
 experimental/*
+*.pdf
+IGNORE.ipynb

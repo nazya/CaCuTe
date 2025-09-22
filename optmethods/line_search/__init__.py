@@ -4,3 +4,4 @@ from .goldstein import Goldstein
 from .nest_armijo import NestArmijo
 from .reg_newton_ls import RegNewtonLS
 from .wolfe import Wolfe
+from .line_search import LineSearch

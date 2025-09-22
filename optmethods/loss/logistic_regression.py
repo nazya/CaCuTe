@@ -9,7 +9,7 @@ from .loss_oracle import Oracle
 from .utils import safe_sparse_add, safe_sparse_multiply, safe_sparse_norm, safe_sparse_inner_prod
 
 
-@njit
+# @njit
 def logsig(x):
     """
     Compute the log-sigmoid function component-wise.
@@ -35,7 +35,7 @@ class LogisticRegression(Oracle):
     """
     
     def __init__(self, A, b, store_mat_vec_prod=True, *args, **kwargs):
-        super(LogisticRegression, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         self.A = A
         b = np.asarray(b)
         b_unique = np.unique(b)
@@ -94,6 +94,81 @@ class LogisticRegression(Oracle):
         if scipy.sparse.issparse(x):
             grad = scipy.sparse.csr_matrix(grad).T
         return grad
+
+    def hessian(self, x):
+        Ax = self.mat_vec_product(x)
+        activation = scipy.special.expit(Ax)
+        weights = activation * (1-activation)
+        A_weighted = safe_sparse_multiply(self.A.T, weights)
+        return A_weighted@self.A/self.n + self.l2*np.eye(self.dim)
+
+    def GgHg(self, x):
+        # weights w_i = σ(a_i^T x)(1-σ(a_i^T x))
+        Ax = self.mat_vec_product(x)
+        w = scipy.special.expit(Ax) * (1.0 - scipy.special.expit(Ax))  # shape (n,)
+
+        # gradient g
+        g = self.gradient(x)
+
+        # s = A g
+        s = self.mat_vec_product(g)
+        s = np.asarray(s).ravel()  # robust for dense/sparse
+
+        # first term: (1/n) * sum_i w_i * s_i^2
+        term1 = float((w * s * s).sum()) / self.n
+
+        # second term: λ ||g||^2
+        if scipy.sparse.issparse(g):
+            gg = float(g.multiply(g).sum())
+        else:
+            gv = np.asarray(g).ravel()
+            gg = float(gv @ gv)
+
+        lam = getattr(self, "l2", 0.0)
+        return g, term1 + lam * gg
+
+
+    def gHg(self, x):
+        """
+        Return (g, Hg) where
+        g  = gradient at x
+        Hg = Hessian(x) @ g
+        Computed without forming the Hessian explicitly:
+        Hg = A^T [ w ⊙ (A g) ] / n + λ g,  where w_i = σ(a_i^T x)(1-σ(a_i^T x))
+        """
+        # weights w_i = σ(a_i^T x)(1-σ(a_i^T x))
+        Ax = self.mat_vec_product(x)
+        w = scipy.special.expit(Ax) * (1.0 - scipy.special.expit(Ax))  # shape (n,)
+
+        # gradient g
+        g = self.gradient(x)
+
+        # s = A g  (works for dense or sparse g)
+        s = self.mat_vec_product(g)
+        s = np.asarray(s).ravel()  # (n,)
+
+        # A^T diag(w) is implemented via elementwise scaling of columns of A^T by w
+        ATw = safe_sparse_multiply(self.A.T, w)  # shape (d, n)
+
+        # Hg = A^T (w ⊙ (A g)) / n + λ g
+        Hg = (ATw @ s) / self.n
+
+        lam = getattr(self, "l2", 0.0)
+        if lam != 0.0:
+            if scipy.sparse.issparse(g):
+                Hg = Hg + lam * np.asarray(g.todense()).ravel()
+            else:
+                Hg = Hg + lam * np.asarray(g).ravel()
+
+        # match output type/shape to gradient
+        if scipy.sparse.issparse(g):
+            Hg = scipy.sparse.csr_matrix(Hg).T  # column vector to mirror gradient shape
+        else:
+            Hg = np.asarray(Hg).ravel()
+
+        return g, Hg
+
+
     
     def stochastic_gradient(self, x, idx=None, batch_size=1, replace=False, normalization=None, 
                             importance_sampling=False, p=None, rng=None, return_idx=False):
@@ -136,12 +211,6 @@ class LogisticRegression(Oracle):
             return (grad, idx)
         return grad
     
-    def hessian(self, x):
-        Ax = self.mat_vec_product(x)
-        activation = scipy.special.expit(Ax)
-        weights = activation * (1-activation)
-        A_weighted = safe_sparse_multiply(self.A.T, weights)
-        return A_weighted@self.A/self.n + self.l2*np.eye(self.dim)
     
     def stochastic_hessian(self, x, idx=None, batch_size=1, replace=False, normalization=None, 
                            rng=None, return_idx=False):

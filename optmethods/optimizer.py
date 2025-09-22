@@ -4,7 +4,7 @@ import numpy.linalg as la
 import scipy
 import time
 
-from tqdm.notebook import tqdm
+# from tqdm.notebook import tqdm
 
 from optmethods.opt_trace import Trace, StochasticTrace
 from optmethods.utils import set_seed
@@ -41,7 +41,7 @@ class Optimizer:
         tqdm (bool, optional): whether to use tqdm to report progress of the run (default: True)
     """
     def __init__(self, loss, trace_len=200, use_prox=True, tolerance=0, line_search=None,
-                 save_first_iterations=5, label=None, seeds=None, tqdm=True):
+                 save_first_iterations=5, label=None, seeds=None, tqdm=False):
         self.loss = loss
         self.trace_len = trace_len
         self.use_prox = use_prox and (self.loss.regularizer is not None)
@@ -80,22 +80,44 @@ class Optimizer:
                 self.initialized = True
                 
             it_criterion = self.ls_it_max is not np.inf
-            tqdm_total = self.ls_it_max if it_criterion else self.t_max
-            tqdm_val = 0
-            with tqdm(total=tqdm_total) as pbar:
-                while not self.check_convergence():
-                    if self.tolerance > 0:
-                        self.x_old_tol = copy.deepcopy(self.x)
-                    self.step()
-                    self.save_checkpoint()
-                    if it_criterion and self.line_search is not None:
-                        tqdm_val_new = self.ls_it
-                    elif it_criterion:
-                        tqdm_val_new = self.it
-                    else:
-                        tqdm_val_new = self.t
-                    pbar.update(tqdm_val_new - tqdm_val)
-                    tqdm_val = tqdm_val_new
+            # tqdm_total = self.ls_it_max if it_criterion else self.t_max
+            # tqdm_val = 0
+            # with tqdm(total=tqdm_total) as pbar:
+            #     while not self.check_convergence():
+            #         if self.tolerance > 0:
+            #             self.x_old_tol = copy.deepcopy(self.x)
+            #         self.step()
+            #         self.save_checkpoint()
+            #         if it_criterion and self.line_search is not None:
+            #             tqdm_val_new = self.ls_it
+            #         elif it_criterion:
+            #             tqdm_val_new = self.it
+            #         else:
+            #             tqdm_val_new = self.t
+            #         pbar.update(tqdm_val_new - tqdm_val)
+            #         tqdm_val = tqdm_val_new
+            max_iter = self.ls_it_max if it_criterion else self.t_max
+
+            while not self.check_convergence():
+                if self.tolerance > 0:
+                    self.x_old_tol = copy.deepcopy(self.x)
+                fopt = self.step()
+                if fopt is not None:
+                    print(f"{fopt=}")
+                    return fopt
+                self.save_checkpoint()
+
+                # Get current iteration count
+                # if it_criterion and self.line_search is not None:
+                #     current_iter = self.ls_it
+                if it_criterion:
+                    current_iter = self.it
+                else:
+                    current_iter = self.t
+
+                if current_iter >= max_iter:
+                    break
+                
             self.finished_seeds.append(seed)
             self.initialized = False
 
@@ -132,6 +154,7 @@ class Optimizer:
         self.max_progress = 0
         if self.line_search is not None:
             self.line_search.reset(self)
+
         
     def should_update_trace(self):
         if self.it <= self.save_first_iterations:

@@ -29,7 +29,9 @@ class Trace:
     
     def compute_loss_of_iterates(self):
         if len(self.loss_vals) == 0:
-            self.loss_vals = np.asarray([self.loss.value(x) for x in self.xs])
+            # self.loss_vals = np.asarray([self.loss.value(x) for x in self.xs])
+            self.loss_vals = [self.loss.value(x) for x in self.xs]
+
         else:
             warnings.warn('Loss values have already been computed. Set .loss_vals = [] to recompute.')
     
@@ -41,7 +43,7 @@ class Trace:
         self.its = np.asarray(self.its) / its_per_epoch
         self.its_converted_to_epochs = True
           
-    def plot_losses(self, its=None, f_opt=None, label=None, markevery=None, use_ls_its=True, time=False, *args, **kwargs):
+    def plot_losses(self, its=None, f_opt=None, label=None, markevery=None, use_ls_its=False, time=False, *args, **kwargs):
         if label is None:
             label = self.label
         if its is None:
@@ -59,8 +61,13 @@ class Trace:
         if markevery is None:
             markevery = max(1, len(self.loss_vals)//20)
         
-        plt.plot(its, self.loss_vals - f_opt, label=label, markevery=markevery, *args, **kwargs)
+        y = [i - f_opt for i in self.loss_vals]
+        plt.plot(its, y, label=label, markevery=markevery, *args, **kwargs)
+        # plt.plot(its, self.loss_vals - f_opt, label=label, markevery=markevery, *args, **kwargs)
         plt.ylabel(r'$f(x)-f^*$')
+        xlabel = "time, s" if time else "iterations"
+        plt.xlabel(xlabel)
+
         
     def plot_distances(self, its=None, x_opt=None, label=None, markevery=None, use_ls_its=True, time=False, *args, **kwargs):
         if its is None:
