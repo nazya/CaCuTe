@@ -90,6 +90,12 @@ class CaCuAdGD(Optimizer):
         self.H = self.reg_coef/2
         self.H_hat = 1e-8
 
+    def _store_h_hat_use(self, M, loss_val=None):
+        if self.H_hat >= M:
+            self.trace.h_hat_used_its.append(self.it + 1)
+            if loss_val is not None:
+                self.trace.h_hat_used_loss_vals.append(loss_val)
+
     # def step(self):
     #     # self.grad = self.loss.gradient(self.x)
     #     # self.hess = self.loss.hessian(self.x)
@@ -184,7 +190,7 @@ class CaCuAdGD(Optimizer):
         M = pe**2 / gnorm * (1.07)**2
 
         alpha = 3/4/1.07
-        alpha = 0.7
+        # alpha = 0.7
 
         cacu = 16
         check = self.H_hat/cacu > M
@@ -192,8 +198,8 @@ class CaCuAdGD(Optimizer):
         # check = max(self.H_hat/16, M)
         if check:
             self.H_hat = self.H_hat/cacu
-
-            fxnew = self.loss.value(self.x - self.grad/np.sqrt(self.H_hat*gnorm))
+            x_new = self.x - self.grad/np.sqrt(self.H_hat*gnorm)
+            fxnew = self.loss.value(x_new)
             check = fxnew  <= fx + 1/2 * p / self.H_hat / gnorm - 2/3 * gnorm**1.5 / np.sqrt(self.H_hat)
             if check:
                 # print(f"{self.H_hat=}")
@@ -203,23 +209,27 @@ class CaCuAdGD(Optimizer):
             
         
         if check:
-            self.x = self.x - self.grad/np.sqrt(max(M, self.H_hat)*gnorm)
+            self._store_h_hat_use(M, loss_val=fxnew)
+            self.x = x_new
             return
            
 
         while True:
-            check = self.loss.value(self.x - self.grad/np.sqrt(max(M, self.H_hat)*gnorm)) <= fx - 2/3 * (1-alpha)* gnorm**1.5 / np.sqrt(max(M, self.H_hat)) 
+            H_used = max(M, self.H_hat)
+            x_new = self.x - self.grad/np.sqrt(H_used*gnorm)
+            fxnew = self.loss.value(x_new)
+            check = fxnew <= fx - 2/3 * (1-alpha)* gnorm**1.5 / np.sqrt(H_used)
             if check:
-                self.x = self.x - self.grad/np.sqrt(max(M, self.H_hat)*gnorm) 
-                # print(f"{self.H_hat=}")
-                # if max(M, self.H_hat) == M:
-                #     self.H_hat*=2
+                self._store_h_hat_use(M, loss_val=fxnew)
+                self.x = x_new
                 return
             self.H_hat *= 2
 
         
     def init_run(self, *args, **kwargs):
         super().init_run(*args, **kwargs)
+        self.trace.h_hat_used_its = []
+        self.trace.h_hat_used_loss_vals = []
         self.trace.solver_its = [0]
         
     def update_trace(self):

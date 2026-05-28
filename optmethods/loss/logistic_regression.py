@@ -2,7 +2,7 @@ import scipy
 import numpy as np
 import warnings
 
-from numba import njit
+# from numba import njit
 from sklearn.utils.extmath import row_norms, safe_sparse_dot
 
 from .loss_oracle import Oracle

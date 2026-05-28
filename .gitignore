@@ -135,3 +135,9 @@ dmypy.json
 experimental/*
 *.pdf
 IGNORE.ipynb
+
+# Local research files
+.codex
+.jupyter_data/
+notebooks/5.AccCaCuNA.ipynb
+optmethods/second_order/draft.py
